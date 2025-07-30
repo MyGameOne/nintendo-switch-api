@@ -2,6 +2,7 @@
 	"name": "nintendo-switch-api",
 	"version": "0.0.0",
 	"private": true,
+	"description": "Nintendo Switch API on Cloudflare Workers",
 	"scripts": {
 		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",
