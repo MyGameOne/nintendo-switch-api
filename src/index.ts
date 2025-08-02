@@ -1,6 +1,7 @@
 import type { Env } from './types'
 import { handleAuthCallback, handleAuthUrl } from './handlers/auth'
 import { handleGameRecords } from './handlers/games'
+import { handleAddToQueue, handleQueueStats } from './handlers/queue'
 import { handleUserInfo } from './handlers/user'
 import { DatabaseService } from './services/database-service'
 
@@ -43,6 +44,14 @@ export default {
           response = await handleStats(env)
           break
 
+        case '/api/admin/queue/stats':
+          response = await handleQueueStats(request, env)
+          break
+
+        case '/api/admin/queue/add':
+          response = await handleAddToQueue(request, env)
+          break
+
         default:
           response = new Response(JSON.stringify({
             success: false,
@@ -54,6 +63,8 @@ export default {
               'POST /api/user',
               'POST /api/games',
               'GET /api/stats',
+              'GET /api/admin/queue/stats',
+              'POST /api/admin/queue/add',
             ],
           }), {
             status: 404,
@@ -182,6 +193,7 @@ async function handleStats(env: Env): Promise<Response> {
         chineseNameCoverage: stats.totalGames > 0
           ? `${((stats.gamesWithChineseName / stats.totalGames) * 100).toFixed(1)}%`
           : '0%',
+        queueStats: stats.queueStats,
         lastUpdated: new Date().toISOString(),
       },
     }

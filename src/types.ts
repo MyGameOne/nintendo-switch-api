@@ -1,8 +1,8 @@
 // 环境变量类型
 export interface Env {
   DB: D1Database
-  GAME_IDS: KVNamespace  // 游戏 ID 存储
-  CACHE: KVNamespace     // 缓存存储
+  GAME_IDS: KVNamespace // 游戏 ID 存储
+  CACHE: KVNamespace // 缓存存储
 }
 
 // 会话状态数据
@@ -63,6 +63,15 @@ export interface GameRecordsResponse {
 export interface UserInfoResponse {
   success: boolean
   user?: UserInfo
+  error?: string
+}
+
+export interface QueueStatsResponse {
+  success: boolean
+  stats?: {
+    pendingCount: number
+    pendingGames?: string[]
+  }
   error?: string
 }
 

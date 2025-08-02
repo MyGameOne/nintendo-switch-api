@@ -20,13 +20,11 @@
   "kv_namespaces": [
     {
       "binding": "GAME_IDS",
-      "id": "12250a4c4409481c8fcf26f500f79fbb",
-      "preview_id": "30a5d65fce5d4a469c0557cd1202b572"
+      "id": "12250a4c4409481c8fcf26f500f79fbb"
     },
     {
       "binding": "CACHE",
-      "id": "4b6c7a67cf78426c9fa80b9974a4c22d",
-      "preview_id": "dd36ff134e7d4a62ac3003161126439f"
+      "id": "4b6c7a67cf78426c9fa80b9974a4c22d"
     }
   ]
   /**
