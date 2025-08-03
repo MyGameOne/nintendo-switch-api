@@ -25,8 +25,8 @@ admin.get('/games', async (c) => {
     const offset = (page - 1) * limit
 
     let query = `
-      SELECT title_id, formal_name, name_zh, publisher_name, 
-             release_date, genre, price, created_at, updated_at
+      SELECT title_id, formal_name, publisher_name, 
+             release_date, genre, created_at, updated_at
       FROM games 
     `
     let countQuery = 'SELECT COUNT(*) as count FROM games'
@@ -34,10 +34,10 @@ admin.get('/games', async (c) => {
 
     // 搜索功能
     if (search) {
-      const searchCondition = ` WHERE (formal_name LIKE ? OR name_zh LIKE ? OR title_id LIKE ?)`
+      const searchCondition = ` WHERE (formal_name LIKE ? OR name_zh_hant LIKE ? OR name_zh_hans LIKE ? OR title_id LIKE ?)`
       query += searchCondition
       countQuery += searchCondition
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`)
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`)
     }
 
     query += ` ORDER BY updated_at DESC LIMIT ? OFFSET ?`
@@ -45,7 +45,7 @@ admin.get('/games', async (c) => {
 
     const [games, totalResult] = await Promise.all([
       c.env.DB.prepare(query).bind(...params).all(),
-      c.env.DB.prepare(countQuery).bind(...(search ? [`%${search}%`, `%${search}%`, `%${search}%`] : [])).first(),
+      c.env.DB.prepare(countQuery).bind(...(search ? [`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`] : [])).first(),
     ])
 
     const total = (totalResult as any)?.count || 0
@@ -60,6 +60,8 @@ admin.get('/games', async (c) => {
         totalPages: Math.ceil(total / limit),
       },
       timestamp: new Date().toISOString(),
+    }, 200, {
+      'Content-Type': 'application/json; charset=utf-8',
     })
   }
   catch (error) {
@@ -67,7 +69,9 @@ admin.get('/games', async (c) => {
     return c.json({
       success: false,
       error: '获取游戏列表失败',
-    }, 500)
+    }, 500, {
+      'Content-Type': 'application/json; charset=utf-8',
+    })
   }
 })
 
@@ -84,13 +88,17 @@ admin.get('/games/:titleId', async (c) => {
       return c.json({
         success: false,
         error: '游戏不存在',
-      }, 404)
+      }, 404, {
+        'Content-Type': 'application/json; charset=utf-8',
+      })
     }
 
     return c.json({
       success: true,
       data: game,
       timestamp: new Date().toISOString(),
+    }, 200, {
+      'Content-Type': 'application/json; charset=utf-8',
     })
   }
   catch (error) {
@@ -98,7 +106,9 @@ admin.get('/games/:titleId', async (c) => {
     return c.json({
       success: false,
       error: '获取游戏详情失败',
-    }, 500)
+    }, 500, {
+      'Content-Type': 'application/json; charset=utf-8',
+    })
   }
 })
 
@@ -111,18 +121,30 @@ admin.put('/games/:titleId', async (c) => {
     // 允许更新的字段
     const allowedFields = [
       'formal_name',
-      'name_zh',
+      'name_zh_hant',
+      'name_zh_hans',
       'name_en',
       'name_ja',
+      'catch_copy',
       'description',
       'publisher_name',
+      'publisher_id',
       'genre',
       'release_date',
-      'price',
-      'is_free',
-      'in_app_purchase',
+      'hero_banner_url',
+      'screenshots',
+      'platform',
+      'languages',
+      'player_number',
+      'play_styles',
+      'rom_size',
       'rating_age',
       'rating_name',
+      'in_app_purchase',
+      'cloud_backup_type',
+      'region',
+      'data_source',
+      'notes',
     ]
 
     const updateFields: string[] = []
@@ -139,7 +161,9 @@ admin.put('/games/:titleId', async (c) => {
       return c.json({
         success: false,
         error: '没有提供有效的更新字段',
-      }, 400)
+      }, 400, {
+        'Content-Type': 'application/json; charset=utf-8',
+      })
     }
 
     updateFields.push('updated_at = CURRENT_TIMESTAMP')
@@ -157,13 +181,17 @@ admin.put('/games/:titleId', async (c) => {
       return c.json({
         success: false,
         error: '游戏不存在或更新失败',
-      }, 404)
+      }, 404, {
+        'Content-Type': 'application/json; charset=utf-8',
+      })
     }
 
     return c.json({
       success: true,
       message: '游戏信息更新成功',
       timestamp: new Date().toISOString(),
+    }, 200, {
+      'Content-Type': 'application/json; charset=utf-8',
     })
   }
   catch (error) {
@@ -171,7 +199,9 @@ admin.put('/games/:titleId', async (c) => {
     return c.json({
       success: false,
       error: '更新游戏信息失败',
-    }, 500)
+    }, 500, {
+      'Content-Type': 'application/json; charset=utf-8',
+    })
   }
 })
 
@@ -188,13 +218,17 @@ admin.delete('/games/:titleId', async (c) => {
       return c.json({
         success: false,
         error: '游戏不存在',
-      }, 404)
+      }, 404, {
+        'Content-Type': 'application/json; charset=utf-8',
+      })
     }
 
     return c.json({
       success: true,
       message: '游戏删除成功',
       timestamp: new Date().toISOString(),
+    }, 200, {
+      'Content-Type': 'application/json; charset=utf-8',
     })
   }
   catch (error) {
@@ -202,7 +236,9 @@ admin.delete('/games/:titleId', async (c) => {
     return c.json({
       success: false,
       error: '删除游戏失败',
-    }, 500)
+    }, 500, {
+      'Content-Type': 'application/json; charset=utf-8',
+    })
   }
 })
 
@@ -215,7 +251,9 @@ admin.post('/games/batch-delete', async (c) => {
       return c.json({
         success: false,
         error: '请提供有效的游戏ID数组',
-      }, 400)
+      }, 400, {
+        'Content-Type': 'application/json; charset=utf-8',
+      })
     }
 
     const placeholders = titleIds.map(() => '?').join(',')
@@ -228,6 +266,8 @@ admin.post('/games/batch-delete', async (c) => {
       message: `成功删除 ${result.meta.changes} 个游戏`,
       deletedCount: result.meta.changes,
       timestamp: new Date().toISOString(),
+    }, 200, {
+      'Content-Type': 'application/json; charset=utf-8',
     })
   }
   catch (error) {
@@ -235,7 +275,9 @@ admin.post('/games/batch-delete', async (c) => {
     return c.json({
       success: false,
       error: '批量删除游戏失败',
-    }, 500)
+    }, 500, {
+      'Content-Type': 'application/json; charset=utf-8',
+    })
   }
 })
 
@@ -273,6 +315,8 @@ admin.get('/kv/keys', async (c) => {
         cursor: keys.list_complete ? null : keys.keys[keys.keys.length - 1]?.name,
       },
       timestamp: new Date().toISOString(),
+    }, 200, {
+      'Content-Type': 'application/json; charset=utf-8',
     })
   }
   catch (error) {
@@ -280,7 +324,9 @@ admin.get('/kv/keys', async (c) => {
     return c.json({
       success: false,
       error: '获取 KV 键列表失败',
-    }, 500)
+    }, 500, {
+      'Content-Type': 'application/json; charset=utf-8',
+    })
   }
 })
 
@@ -304,7 +350,9 @@ admin.get('/kv/value/:key', async (c) => {
       return c.json({
         success: false,
         error: '键不存在',
-      }, 404)
+      }, 404, {
+        'Content-Type': 'application/json; charset=utf-8',
+      })
     }
 
     // 尝试解析 JSON
@@ -324,6 +372,8 @@ admin.get('/kv/value/:key', async (c) => {
         rawValue: value,
       },
       timestamp: new Date().toISOString(),
+    }, 200, {
+      'Content-Type': 'application/json; charset=utf-8',
     })
   }
   catch (error) {
@@ -331,7 +381,9 @@ admin.get('/kv/value/:key', async (c) => {
     return c.json({
       success: false,
       error: '获取 KV 值失败',
-    }, 500)
+    }, 500, {
+      'Content-Type': 'application/json; charset=utf-8',
+    })
   }
 })
 
@@ -360,6 +412,8 @@ admin.put('/kv/value/:key', async (c) => {
       success: true,
       message: 'KV 值设置成功',
       timestamp: new Date().toISOString(),
+    }, 200, {
+      'Content-Type': 'application/json; charset=utf-8',
     })
   }
   catch (error) {
@@ -367,7 +421,9 @@ admin.put('/kv/value/:key', async (c) => {
     return c.json({
       success: false,
       error: '设置 KV 值失败',
-    }, 500)
+    }, 500, {
+      'Content-Type': 'application/json; charset=utf-8',
+    })
   }
 })
 
@@ -391,6 +447,8 @@ admin.delete('/kv/value/:key', async (c) => {
       success: true,
       message: 'KV 键删除成功',
       timestamp: new Date().toISOString(),
+    }, 200, {
+      'Content-Type': 'application/json; charset=utf-8',
     })
   }
   catch (error) {
@@ -398,7 +456,9 @@ admin.delete('/kv/value/:key', async (c) => {
     return c.json({
       success: false,
       error: '删除 KV 键失败',
-    }, 500)
+    }, 500, {
+      'Content-Type': 'application/json; charset=utf-8',
+    })
   }
 })
 
@@ -411,7 +471,9 @@ admin.post('/kv/batch-delete', async (c) => {
       return c.json({
         success: false,
         error: '请提供有效的键数组',
-      }, 400)
+      }, 400, {
+        'Content-Type': 'application/json; charset=utf-8',
+      })
     }
 
     let kvNamespace: KVNamespace
@@ -430,6 +492,8 @@ admin.post('/kv/batch-delete', async (c) => {
       message: `成功删除 ${keys.length} 个 KV 键`,
       deletedCount: keys.length,
       timestamp: new Date().toISOString(),
+    }, 200, {
+      'Content-Type': 'application/json; charset=utf-8',
     })
   }
   catch (error) {
@@ -437,7 +501,9 @@ admin.post('/kv/batch-delete', async (c) => {
     return c.json({
       success: false,
       error: '批量删除 KV 键失败',
-    }, 500)
+    }, 500, {
+      'Content-Type': 'application/json; charset=utf-8',
+    })
   }
 })
 
@@ -474,6 +540,8 @@ admin.post('/kv/cleanup', async (c) => {
       message: `清理完成，删除了 ${cleanedCount} 个过期项`,
       cleanedCount,
       timestamp: new Date().toISOString(),
+    }, 200, {
+      'Content-Type': 'application/json; charset=utf-8',
     })
   }
   catch (error) {
@@ -481,7 +549,9 @@ admin.post('/kv/cleanup', async (c) => {
     return c.json({
       success: false,
       error: '清理 KV 失败',
-    }, 500)
+    }, 500, {
+      'Content-Type': 'application/json; charset=utf-8',
+    })
   }
 })
 

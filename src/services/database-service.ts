@@ -11,7 +11,7 @@ export class DatabaseService {
   }
 
   // 根据游戏 ID 批量获取中文名称和发行商信息
-  async getGameEnhancements(titleIds: string[]): Promise<Map<string, { formal_name?: string, publisher_name?: string }>> {
+  async getGameEnhancements(titleIds: string[]): Promise<Map<string, { name_zh_hant?: string, publisher_name?: string }>> {
     if (titleIds.length === 0)
       return new Map()
 
@@ -19,7 +19,7 @@ export class DatabaseService {
       // 构建 SQL 查询
       const placeholders = titleIds.map(() => '?').join(',')
       const query = `
-        SELECT title_id, formal_name, publisher_name 
+        SELECT title_id, name_zh_hant, publisher_name 
         FROM games 
         WHERE title_id IN (${placeholders})
       `
@@ -27,12 +27,12 @@ export class DatabaseService {
       const { results } = await this.db.prepare(query).bind(...titleIds).all()
 
       // 创建查找映射
-      const enhancementMap = new Map<string, { formal_name?: string, publisher_name?: string }>()
+      const enhancementMap = new Map<string, { name_zh_hant?: string, publisher_name?: string }>()
 
       if (results) {
         for (const row of results as any[]) {
           enhancementMap.set(row.title_id, {
-            formal_name: row.formal_name,
+            name_zh_hant: row.name_zh_hant,
             publisher_name: row.publisher_name,
           })
         }
@@ -62,7 +62,7 @@ export class DatabaseService {
       const enhancement = enhancements.get(record.titleId)
       return {
         ...record,
-        titleNameCN: enhancement?.formal_name || undefined,
+        titleNameCN: enhancement?.name_zh_hant || undefined,
         publisher: enhancement?.publisher_name || undefined,
       }
     })
@@ -73,7 +73,7 @@ export class DatabaseService {
    */
   private async manageGameQueue(
     titleIds: string[],
-    enhancements: Map<string, { formal_name?: string, publisher_name?: string }>,
+    enhancements: Map<string, { name_zh_hant?: string, publisher_name?: string }>,
   ): Promise<void> {
     try {
       // 找出数据库中不存在的游戏 ID
@@ -147,7 +147,7 @@ export class DatabaseService {
   }> {
     try {
       const totalResult = await this.db.prepare('SELECT COUNT(*) as count FROM games').first()
-      const chineseResult = await this.db.prepare('SELECT COUNT(*) as count FROM games WHERE formal_name IS NOT NULL').first()
+      const chineseResult = await this.db.prepare('SELECT COUNT(*) as count FROM games WHERE name_zh_hant IS NOT NULL').first()
 
       // 获取队列统计
       const queueStats = await this.kvService.getQueueStats()
