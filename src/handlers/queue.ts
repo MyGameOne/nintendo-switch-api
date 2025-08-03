@@ -107,7 +107,7 @@ export async function handleAddToQueue(request: Request, env: Env): Promise<Resp
 
     // 验证游戏 ID 格式 (16位十六进制)
     const validTitleIds = titleIdArray.filter(id =>
-      typeof id === 'string' && /^[0-9a-fA-F]{16}$/i.test(id),
+      typeof id === 'string' && /^[0-9a-f]{16}$/i.test(id),
     )
 
     if (validTitleIds.length === 0) {

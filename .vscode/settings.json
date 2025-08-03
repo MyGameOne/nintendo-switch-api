@@ -1,19 +1,19 @@
 {
-	"files.associations": {
-		"wrangler.json": "jsonc"
-	},
-	// Disable the default formatter, use eslint instead
-	"prettier.enable": false,
-	"editor.formatOnSave": false,
-  
-	// Auto fix
-	"editor.codeActionsOnSave": {
+  "files.associations": {
+    "wrangler.json": "jsonc"
+  },
+  // Disable the default formatter, use eslint instead
+  "prettier.enable": false,
+  "editor.formatOnSave": false,
+
+  // Auto fix
+  "editor.codeActionsOnSave": {
 	  "source.fixAll.eslint": "explicit",
 	  "source.organizeImports": "never"
-	},
-  
-	// Silent the stylistic rules in you IDE, but still auto fix them
-	"eslint.rules.customizations": [
+  },
+
+  // Silent the stylistic rules in you IDE, but still auto fix them
+  "eslint.rules.customizations": [
 	  { "rule": "style/*", "severity": "off", "fixable": true },
 	  { "rule": "format/*", "severity": "off", "fixable": true },
 	  { "rule": "*-indent", "severity": "off", "fixable": true },
@@ -24,10 +24,10 @@
 	  { "rule": "*-newline", "severity": "off", "fixable": true },
 	  { "rule": "*quotes", "severity": "off", "fixable": true },
 	  { "rule": "*semi", "severity": "off", "fixable": true }
-	],
-  
-	// Enable eslint for all supported languages
-	"eslint.validate": [
+  ],
+
+  // Enable eslint for all supported languages
+  "eslint.validate": [
 	  "javascript",
 	  "javascriptreact",
 	  "typescript",
@@ -49,5 +49,5 @@
 	  "scss",
 	  "pcss",
 	  "postcss"
-	]
+  ]
 }

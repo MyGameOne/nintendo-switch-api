@@ -12,6 +12,9 @@
     "test": "vitest",
     "cf-typegen": "wrangler types"
   },
+  "dependencies": {
+    "hono": "^4.8.12"
+  },
   "devDependencies": {
     "@antfu/eslint-config": "^5.0.0",
     "@cloudflare/vitest-pool-workers": "^0.8.19",

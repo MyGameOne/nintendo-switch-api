@@ -1,218 +1,94 @@
 import type { Env } from './types'
-import { handleAuthCallback, handleAuthUrl } from './handlers/auth'
-import { handleGameRecords } from './handlers/games'
-import { handleAddToQueue, handleQueueStats } from './handlers/queue'
-import { handleUserInfo } from './handlers/user'
-import { DatabaseService } from './services/database-service'
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
 
-export default {
-  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url)
-    const startTime = Date.now()
+import { timing } from 'hono/timing'
+import { adminRoutes } from './routes/admin'
+import { authRoutes } from './routes/auth'
+import { gameRoutes } from './routes/games'
+import { healthRoutes } from './routes/health'
+import { statsRoutes } from './routes/stats'
+import { userRoutes } from './routes/user'
 
-    // CORS 处理
-    if (request.method === 'OPTIONS') {
-      return createCORSResponse()
-    }
+// 创建 Hono 应用实例
+const app = new Hono<{ Bindings: Env }>()
 
-    // 路由处理
-    try {
-      let response: Response
+// 添加 CORS 和性能监控中间件
+app.use('*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400, // 24小时
+}))
 
-      switch (url.pathname) {
-        case '/health':
-          response = await handleHealth(env)
-          break
+app.use('*', timing())
 
-        case '/api/auth/url':
-          response = await handleAuthUrl(request, env)
-          break
-
-        case '/api/auth/callback':
-          response = await handleAuthCallback(request, env)
-          break
-
-        case '/api/user':
-          response = await handleUserInfo(request, env)
-          break
-
-        case '/api/games':
-          response = await handleGameRecords(request, env)
-          break
-
-        case '/api/stats':
-          response = await handleStats(env)
-          break
-
-        case '/api/admin/queue/stats':
-          response = await handleQueueStats(request, env)
-          break
-
-        case '/api/admin/queue/add':
-          response = await handleAddToQueue(request, env)
-          break
-
-        default:
-          response = new Response(JSON.stringify({
-            success: false,
-            error: 'Not Found',
-            availableEndpoints: [
-              'GET /health',
-              'POST /api/auth/url',
-              'POST /api/auth/callback',
-              'POST /api/user',
-              'POST /api/games',
-              'GET /api/stats',
-              'GET /api/admin/queue/stats',
-              'POST /api/admin/queue/add',
-            ],
-          }), {
-            status: 404,
-            headers: { 'Content-Type': 'application/json' },
-          })
-      }
-
-      // 添加 CORS 头和性能指标
-      addCORSHeaders(response)
-      addPerformanceHeaders(response, startTime)
-
-      return response
-    }
-    catch (error) {
-      console.error('❌ Worker 全局错误:', error)
-
-      const errorResponse = new Response(JSON.stringify({
-        success: false,
-        error: 'Internal Server Error',
-        timestamp: new Date().toISOString(),
-      }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      })
-
-      addCORSHeaders(errorResponse)
-      return errorResponse
-    }
-  },
-}
-
-/**
- * 创建 CORS 预检响应
- */
-function createCORSResponse(): Response {
-  return new Response(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Access-Control-Max-Age': '86400', // 24小时
-    },
-  })
-}
-
-/**
- * 添加 CORS 头
- */
-function addCORSHeaders(response: Response): void {
-  response.headers.set('Access-Control-Allow-Origin', '*')
-  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-}
-
-/**
- * 添加性能指标头
- */
-function addPerformanceHeaders(response: Response, startTime: number): void {
+// 添加性能指标头中间件
+app.use('*', async (c, next) => {
+  const startTime = Date.now()
+  await next()
   const duration = Date.now() - startTime
-  response.headers.set('X-Response-Time', `${duration}ms`)
-  response.headers.set('X-Timestamp', new Date().toISOString())
-}
+  c.res.headers.set('X-Response-Time', `${duration}ms`)
+  c.res.headers.set('X-Timestamp', new Date().toISOString())
+})
 
-/**
- * 健康检查
- */
-async function handleHealth(env: Env): Promise<Response> {
-  try {
-    console.log('🏥 执行健康检查...')
+// 路由注册
+app.route('/health', healthRoutes)
+app.route('/api/stats', statsRoutes)
+app.route('/api/auth', authRoutes)
+app.route('/api/user', userRoutes)
+app.route('/api/games', gameRoutes)
+app.route('/api/admin', adminRoutes)
 
-    const databaseService = new DatabaseService(env)
-    const stats = await databaseService.getStats()
-
-    const healthData = {
-      status: 'OK',
-      timestamp: new Date().toISOString(),
-      version: '1.0.0',
-      services: {
-        database: 'connected',
-        nintendo_api: 'available',
+// 404 处理
+app.notFound((c) => {
+  return c.json({
+    success: false,
+    error: 'Not Found',
+    availableEndpoints: {
+      public: [
+        'GET /health',
+        'GET /api/stats',
+      ],
+      auth: [
+        'POST /api/auth/url',
+        'POST /api/auth/callback',
+        'POST /api/user',
+        'POST /api/games',
+      ],
+      admin: {
+        queue: [
+          'GET /api/admin/queue/stats',
+          'POST /api/admin/queue/add',
+        ],
+        database: [
+          'GET /api/admin/games',
+          'GET /api/admin/games/:titleId',
+          'PUT /api/admin/games/:titleId',
+          'DELETE /api/admin/games/:titleId',
+          'POST /api/admin/games/batch-delete',
+        ],
+        kv: [
+          'GET /api/admin/kv/keys',
+          'GET /api/admin/kv/value/:key',
+          'PUT /api/admin/kv/value/:key',
+          'DELETE /api/admin/kv/value/:key',
+          'POST /api/admin/kv/batch-delete',
+          'POST /api/admin/kv/cleanup',
+        ],
       },
-      stats,
-    }
+    },
+  }, 404)
+})
 
-    console.log('✅ 健康检查通过')
-    return new Response(JSON.stringify(healthData), {
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
-  catch (error) {
-    console.error('❌ 健康检查失败:', error)
+// 错误处理
+app.onError((err, c) => {
+  console.error('❌ Worker 全局错误:', err)
+  return c.json({
+    success: false,
+    error: 'Internal Server Error',
+    timestamp: new Date().toISOString(),
+  }, 500)
+})
 
-    const healthData = {
-      status: 'ERROR',
-      timestamp: new Date().toISOString(),
-      error: 'Database connection failed',
-      services: {
-        database: 'disconnected',
-        nintendo_api: 'unknown',
-      },
-    }
-
-    return new Response(JSON.stringify(healthData), {
-      status: 503,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
-}
-
-/**
- * 统计信息接口
- */
-async function handleStats(env: Env): Promise<Response> {
-  try {
-    console.log('📊 获取统计信息...')
-
-    const databaseService = new DatabaseService(env)
-    const stats = await databaseService.getStats()
-
-    const statsData = {
-      success: true,
-      timestamp: new Date().toISOString(),
-      stats: {
-        totalGames: stats.totalGames,
-        gamesWithChineseName: stats.gamesWithChineseName,
-        chineseNameCoverage: stats.totalGames > 0
-          ? `${((stats.gamesWithChineseName / stats.totalGames) * 100).toFixed(1)}%`
-          : '0%',
-        queueStats: stats.queueStats,
-        lastUpdated: new Date().toISOString(),
-      },
-    }
-
-    console.log('✅ 统计信息获取成功')
-    return new Response(JSON.stringify(statsData), {
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
-  catch (error) {
-    console.error('❌ 获取统计信息失败:', error)
-
-    return new Response(JSON.stringify({
-      success: false,
-      error: '获取统计信息失败',
-      timestamp: new Date().toISOString(),
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
-}
+export default app
