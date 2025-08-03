@@ -3,7 +3,6 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 
 import { timing } from 'hono/timing'
-import { adminRoutes } from './routes/admin'
 import { authRoutes } from './routes/auth'
 import { gameRoutes } from './routes/games'
 import { healthRoutes } from './routes/health'
@@ -38,7 +37,6 @@ app.route('/api/stats', statsRoutes)
 app.route('/api/auth', authRoutes)
 app.route('/api/user', userRoutes)
 app.route('/api/games', gameRoutes)
-app.route('/api/admin', adminRoutes)
 
 // 404 处理
 app.notFound((c) => {
@@ -56,29 +54,11 @@ app.notFound((c) => {
         'POST /api/user',
         'POST /api/games',
       ],
-      admin: {
-        queue: [
-          'GET /api/admin/queue/stats',
-          'POST /api/admin/queue/add',
-        ],
-        database: [
-          'GET /api/admin/games',
-          'GET /api/admin/games/:titleId',
-          'PUT /api/admin/games/:titleId',
-          'DELETE /api/admin/games/:titleId',
-          'POST /api/admin/games/batch-delete',
-        ],
-        kv: [
-          'GET /api/admin/kv/keys',
-          'GET /api/admin/kv/value/:key',
-          'PUT /api/admin/kv/value/:key',
-          'DELETE /api/admin/kv/value/:key',
-          'POST /api/admin/kv/batch-delete',
-          'POST /api/admin/kv/cleanup',
-        ],
-      },
+
     },
-  }, 404)
+  }, 404, {
+    'Content-Type': 'application/json; charset=utf-8',
+  })
 })
 
 // 错误处理
