@@ -4,6 +4,7 @@ import { cors } from 'hono/cors'
 
 import { timing } from 'hono/timing'
 import { authRoutes } from './routes/auth'
+import { dataRoutes } from './routes/data'
 import { gameRoutes } from './routes/games'
 import { healthRoutes } from './routes/health'
 import { statsRoutes } from './routes/stats'
@@ -37,6 +38,7 @@ app.route('/api/stats', statsRoutes)
 app.route('/api/auth', authRoutes)
 app.route('/api/user', userRoutes)
 app.route('/api/games', gameRoutes)
+app.route('/api/data', dataRoutes)
 
 // 404 处理
 app.notFound((c) => {
@@ -47,6 +49,10 @@ app.notFound((c) => {
       public: [
         'GET /health',
         'GET /api/stats',
+        'GET /api/data/games',
+        'GET /api/data/games/:titleId',
+        'GET /api/data/games/search/:name',
+        'GET /api/data/games/search',
       ],
       auth: [
         'POST /api/auth/url',
