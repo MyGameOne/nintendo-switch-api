@@ -70,6 +70,7 @@ export class DatabaseService {
 
   /**
    * 智能队列管理：将数据库中不存在的游戏 ID 添加到爬取队列
+   * 这是内部功能，不对外暴露
    */
   private async manageGameQueue(
     titleIds: string[],
@@ -143,24 +144,42 @@ export class DatabaseService {
   async getStats(): Promise<{
     totalGames: number
     gamesWithChineseName: number
+    chineseNameCoverage: string
+    lastUpdated: string
     queueStats?: { pendingCount: number }
   }> {
     try {
-      const totalResult = await this.db.prepare('SELECT COUNT(*) as count FROM games').first()
-      const chineseResult = await this.db.prepare('SELECT COUNT(*) as count FROM games WHERE name_zh_hant IS NOT NULL').first()
+      const [totalResult, chineseResult, lastUpdatedResult] = await Promise.all([
+        this.db.prepare('SELECT COUNT(*) as count FROM games').first(),
+        this.db.prepare('SELECT COUNT(*) as count FROM games WHERE name_zh_hant IS NOT NULL').first(),
+        this.db.prepare('SELECT MAX(updated_at) as last_updated FROM games').first()
+      ])
 
-      // 获取队列统计
-      const queueStats = await this.kvService.getQueueStats()
+      const totalGames = (totalResult as any)?.count || 0
+      const gamesWithChineseName = (chineseResult as any)?.count || 0
+      const chineseNameCoverage = totalGames > 0 
+        ? `${((gamesWithChineseName / totalGames) * 100).toFixed(1)}%`
+        : '0%'
+
+      // 获取队列统计（内部信息，可以在统计中显示）
+      const queueStats = await this.kvService.getQueueStats().catch(() => ({ pendingCount: 0 }))
 
       return {
-        totalGames: (totalResult as any)?.count || 0,
-        gamesWithChineseName: (chineseResult as any)?.count || 0,
+        totalGames,
+        gamesWithChineseName,
+        chineseNameCoverage,
+        lastUpdated: (lastUpdatedResult as any)?.last_updated || new Date().toISOString(),
         queueStats,
       }
     }
     catch (error) {
       console.error('获取统计信息失败:', error)
-      return { totalGames: 0, gamesWithChineseName: 0 }
+      return { 
+        totalGames: 0, 
+        gamesWithChineseName: 0,
+        chineseNameCoverage: '0%',
+        lastUpdated: new Date().toISOString()
+      }
     }
   }
 }

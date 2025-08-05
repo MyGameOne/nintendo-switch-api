@@ -5,22 +5,31 @@
   "description": "Nintendo Switch API on Cloudflare Workers",
   "scripts": {
     "deploy": "wrangler deploy",
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --port 8787",
+    "dev:remote": "wrangler dev --remote",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "start": "wrangler dev",
     "test": "vitest",
-    "cf-typegen": "wrangler types"
+    "test:watch": "vitest --watch",
+    "cf-typegen": "wrangler types",
+    "docs": "echo 'API 文档: http://localhost:8787/docs'",
+    "validate": "tsc --noEmit",
+    "preview": "wrangler dev --local"
   },
   "dependencies": {
-    "hono": "^4.8.12"
+    "@hono/zod-openapi": "^1.1.0",
+    "@scalar/hono-api-reference": "^0.9.13",
+    "hono": "^4.8.12",
+    "stoker": "^2.0.1",
+    "zod": "^4.0.14"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^5.0.0",
-    "@cloudflare/vitest-pool-workers": "^0.8.19",
+    "@antfu/eslint-config": "^5.1.0",
+    "@cloudflare/vitest-pool-workers": "^0.8.59",
     "eslint": "^9.32.0",
-    "typescript": "^5.5.2",
-    "vitest": "~3.2.0",
+    "typescript": "^5.9.2",
+    "vitest": "~3.2.4",
     "wrangler": "^4.27.0"
   }
 }

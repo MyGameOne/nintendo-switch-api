@@ -12,6 +12,7 @@ export class SessionManager {
       const jsonString = JSON.stringify(sessionState)
       return btoa(jsonString)
     }
+    // eslint-disable-next-line unused-imports/no-unused-vars
     catch (error) {
       throw new SessionError('会话状态编码失败')
     }

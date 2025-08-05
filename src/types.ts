@@ -5,6 +5,68 @@ export interface Env {
   CACHE: KVNamespace // 缓存存储
 }
 
+// Hono 上下文变量类型
+export interface Variables {
+  requestId: string
+  validatedData: any
+}
+
+// 统一 API 响应格式
+export interface ApiResponse<T = any> {
+  success: boolean
+  data?: T
+  error?: string
+  message?: string
+  requestId?: string
+  timestamp: string
+  meta?: {
+    pagination?: PaginationMeta
+    performance?: PerformanceMeta
+    [key: string]: any
+  }
+}
+
+// 分页元数据
+export interface PaginationMeta {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+  hasNext: boolean
+  hasPrev: boolean
+}
+
+// 性能元数据
+export interface PerformanceMeta {
+  responseTime: string
+  cacheHit?: boolean
+  dbQueries?: number
+}
+
+// 中间件相关类型
+export interface RequestContext {
+  requestId: string
+  startTime: number
+  userAgent?: string
+  clientIP?: string
+}
+
+export interface RateLimitInfo {
+  count: number
+  resetTime: number
+}
+
+export interface LogEntry {
+  requestId: string
+  method: string
+  url: string
+  status: number
+  duration: number
+  userAgent: string
+  timestamp: string
+  error?: string
+}
+
 // 会话状态数据
 export interface SessionState {
   sessionId: string
@@ -39,40 +101,58 @@ export interface GameRecord {
   totalPlayedMinutes: number
 }
 
-// API 响应类型
-export interface AuthResponse {
-  success: boolean
-  authUrl?: string
-  sessionId?: string
-  instructions?: string[]
-  error?: string
+// 游戏数据库记录类型
+export interface GameData {
+  title_id: string
+  formal_name: string | null
+  name_zh_hant: string | null
+  name_zh_hans: string | null
+  name_en: string | null
+  name_ja: string | null
+  catch_copy: string | null
+  description: string | null
+  publisher_name: string | null
+  publisher_id: number | null
+  genre: string | null
+  release_date: string | null
+  hero_banner_url: string | null
+  screenshots: string | null
+  platform: string | null
+  languages: string | null
+  player_number: string | null
+  play_styles: string | null
+  rom_size: number | null
+  rating_age: number | null
+  rating_name: string | null
+  in_app_purchase: boolean | null
+  cloud_backup_type: string | null
+  region: string | null
+  data_source: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
 }
 
-export interface CallbackResponse {
-  success: boolean
-  sessionToken?: string
-  error?: string
-}
-
-export interface GameRecordsResponse {
-  success: boolean
-  games?: GameRecord[]
-  error?: string
-}
-
-export interface UserInfoResponse {
-  success: boolean
-  user?: UserInfo
-  error?: string
-}
-
-export interface QueueStatsResponse {
-  success: boolean
-  stats?: {
+// 统计信息类型
+export interface DatabaseStats {
+  totalGames: number
+  gamesWithChineseName: number
+  chineseNameCoverage: string
+  lastUpdated: string
+  queueStats?: {
     pendingCount: number
-    pendingGames?: string[]
   }
-  error?: string
+}
+
+// 认证相关数据类型
+export interface AuthUrlData {
+  authUrl: string
+  sessionId: string
+  instructions: string[]
+}
+
+export interface CallbackData {
+  sessionToken: string
 }
 
 export class NintendoAPIError extends Error {

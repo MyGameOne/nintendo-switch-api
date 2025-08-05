@@ -1,198 +1,196 @@
-import type { Env } from '../types'
-import { Hono } from 'hono'
+import type { Env, Variables } from '../types'
+import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
+import { z } from 'zod'
+import { createStandardSuccessResponse, createStandardErrorResponse, createPaginationMeta } from '../utils/response'
 
-const data = new Hono<{ Bindings: Env }>()
+const data = new OpenAPIHono<{ Bindings: Env, Variables: Variables }>()
 
-// 获取所有游戏数据
-data.get('/games', async (c) => {
-  try {
-    // 添加可选的限制参数，防止数据过大
-    const limitParam = c.req.query('limit')
-    const limit = limitParam ? Math.min(Number.parseInt(limitParam), 10000) : 10000 // 最大10000条
-
-    const result = await c.env.DB.prepare(`
-      SELECT * FROM games 
-      ORDER BY updated_at DESC
-      LIMIT ?
-    `).bind(limit).all()
-
-    return c.json({
-      success: true,
-      data: result.results,
-      count: result.results?.length || 0,
-      limit,
-      timestamp: new Date().toISOString(),
-    }, 200, {
-      'Content-Type': 'application/json; charset=utf-8',
-    })
-  }
-  catch (error) {
-    console.error('❌ 获取所有游戏数据失败:', error)
-    return c.json({
-      success: false,
-      error: '获取游戏数据失败',
-      timestamp: new Date().toISOString(),
-    }, 500, {
-      'Content-Type': 'application/json; charset=utf-8',
-    })
-  }
+// 游戏数据 Schema
+const GameDataSchema = z.object({
+  title_id: z.string().describe("游戏 ID"),
+  formal_name: z.string().nullable().describe("正式名称"),
+  name_zh_hant: z.string().nullable().describe("繁体中文名称"),
+  name_zh_hans: z.string().nullable().describe("简体中文名称"),
+  name_en: z.string().nullable().describe('英文名称'),
+  name_ja: z.string().nullable().describe('日语名称'),
+  description: z.string().nullable().describe('简介'),
+  publisher_name: z.string().nullable().describe('发行商名称'),
+  genre: z.string().nullable().describe('游戏类型'),
+  release_date: z.string().nullable().describe('发行日期'),
+  hero_banner_url: z.string().nullable().describe('游戏 banner 地址'),
+  screenshots: z.string().nullable().describe('游戏截图列表'),
+  platform: z.string().nullable().describe('平台'),
+  languages: z.string().nullable().describe('游戏支持语言'),
+  player_number: z.string().nullable().describe('玩家人数'),
+  rom_size: z.number().nullable().describe('游戏大小'),
+  rating_age: z.number().nullable().describe('游戏年龄限制'),
+  rating_name: z.string().nullable().describe('游戏评级名称'),
+  in_app_purchase: z.boolean().nullable().describe("在应用内购买"),
+  region: z.string().nullable().describe('游戏区域'),
+  created_at: z.string().describe('创建时间'),
+  updated_at: z.string().describe('更新时间'),
 })
 
-// 根据游戏ID查询单个游戏
-data.get('/games/:titleId', async (c) => {
-  try {
-    const titleId = c.req.param('titleId')
-
-    if (!titleId) {
-      return c.json({
-        success: false,
-        error: '游戏ID是必需的',
-        timestamp: new Date().toISOString(),
-      }, 400, {
-        'Content-Type': 'application/json; charset=utf-8',
-      })
-    }
-
-    const result = await c.env.DB.prepare(`
-      SELECT * FROM games WHERE title_id = ?
-    `).bind(titleId).first()
-
-    if (!result) {
-      return c.json({
-        success: false,
-        error: '游戏不存在',
-        timestamp: new Date().toISOString(),
-      }, 404, {
-        'Content-Type': 'application/json; charset=utf-8',
-      })
-    }
-
-    return c.json({
-      success: true,
-      data: result,
-      timestamp: new Date().toISOString(),
-    }, 200, {
-      'Content-Type': 'application/json; charset=utf-8',
-    })
-  }
-  catch (error) {
-    console.error('❌ 根据ID查询游戏失败:', error)
-    return c.json({
-      success: false,
-      error: '查询游戏失败',
-      timestamp: new Date().toISOString(),
-    }, 500, {
-      'Content-Type': 'application/json; charset=utf-8',
-    })
-  }
+// 游戏列表路由
+const gamesListRoute = createRoute({
+  method: 'get',
+  path: '/games',
+  tags: ['Game Data'],
+  summary: '获取游戏列表',
+  description: '获取游戏数据库中的游戏列表，支持分页和搜索',
+  request: {
+    query: z.object({
+      page: z.string().optional().default('1'),
+      limit: z.string().optional().default('20'),
+      search: z.string().optional(),
+      genre: z.string().optional(),
+      publisher: z.string().optional(),
+      region: z.string().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: '游戏列表获取成功',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+            data: z.array(GameDataSchema),
+            message: z.string().optional(),
+            meta: z.object({
+              pagination: z.object({
+                page: z.number(),
+                limit: z.number(),
+                total: z.number(),
+                totalPages: z.number(),
+                hasNext: z.boolean(),
+                hasPrev: z.boolean(),
+              }),
+            }).optional(),
+          }),
+        },
+      },
+    },
+    400: {
+      description: '请求参数错误',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+            data: z.null(),
+            error: z.string(),
+            message: z.string().optional(),
+          }),
+        },
+      },
+    },
+    500: {
+      description: '服务器内部错误',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+            data: z.null(),
+            error: z.string(),
+            message: z.string().optional(),
+          }),
+        },
+      },
+    },
+  },
 })
 
-// 根据游戏名称模糊查询
-data.get('/games/search/:name', async (c) => {
-  try {
-    const name = c.req.param('name')
-
-    if (!name) {
-      return c.json({
-        success: false,
-        error: '游戏名称是必需的',
-        timestamp: new Date().toISOString(),
-      }, 400, {
-        'Content-Type': 'application/json; charset=utf-8',
-      })
-    }
-
-    // 解码URL参数
-    const decodedName = decodeURIComponent(name)
-    const searchPattern = `%${decodedName}%`
-
-    // 添加限制，防止返回过多结果
-    const limitParam = c.req.query('limit')
-    const limit = limitParam ? Math.min(Number.parseInt(limitParam), 1000) : 100 // 默认100条，最大1000条
-
-    const result = await c.env.DB.prepare(`
-      SELECT * FROM games 
-      WHERE formal_name LIKE ? 
-         OR name_zh_hant LIKE ? 
-         OR name_zh_hans LIKE ? 
-         OR name_en LIKE ? 
-         OR name_ja LIKE ?
-      ORDER BY 
-        CASE 
-          WHEN formal_name = ? THEN 1
-          WHEN name_zh_hant = ? THEN 2
-          WHEN name_zh_hans = ? THEN 3
-          WHEN name_en = ? THEN 4
-          WHEN name_ja = ? THEN 5
-          ELSE 6
-        END,
-        updated_at DESC
-      LIMIT ?
-    `).bind(
-      searchPattern,
-      searchPattern,
-      searchPattern,
-      searchPattern,
-      searchPattern,
-      decodedName,
-      decodedName,
-      decodedName,
-      decodedName,
-      decodedName,
-      limit,
-    ).all()
-
-    return c.json({
-      success: true,
-      data: result.results,
-      count: result.results?.length || 0,
-      query: decodedName,
-      limit,
-      timestamp: new Date().toISOString(),
-    }, 200, {
-      'Content-Type': 'application/json; charset=utf-8',
-    })
-  }
-  catch (error) {
-    console.error('❌ 根据名称搜索游戏失败:', error)
-    return c.json({
-      success: false,
-      error: '搜索游戏失败',
-      timestamp: new Date().toISOString(),
-    }, 500, {
-      'Content-Type': 'application/json; charset=utf-8',
-    })
-  }
+// 游戏详情路由
+const gameDetailRoute = createRoute({
+  method: 'get',
+  path: '/games/{titleId}',
+  tags: ['Game Data'],
+  summary: '获取游戏详情',
+  description: '根据 titleId 获取游戏详细信息',
+  request: {
+    params: z.object({
+      titleId: z.string().regex(/^[0-9A-F]{16}$/i, '游戏 ID 必须是 16 位十六进制字符串'),
+    }),
+  },
+  responses: {
+    200: {
+      description: '游戏详情获取成功',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+            data: GameDataSchema,
+            message: z.string().optional(),
+          }),
+        },
+      },
+    },
+    400: {
+      description: '请求参数错误',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+            data: z.null(),
+            error: z.string(),
+            message: z.string().optional(),
+          }),
+        },
+      },
+    },
+    404: {
+      description: '游戏不存在',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+            data: z.null(),
+            error: z.string(),
+            message: z.string().optional(),
+          }),
+        },
+      },
+    },
+    500: {
+      description: '服务器内部错误',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+            data: z.null(),
+            error: z.string(),
+            message: z.string().optional(),
+          }),
+        },
+      },
+    },
+  },
 })
 
-// 高级搜索接口（支持多个查询参数）
-data.get('/games/search', async (c) => {
+// 注册游戏列表路由
+data.openapi(gamesListRoute, (async (c: any) => {
+  const requestId = c.get('requestId')
+  console.log(`📋 [${requestId}] 获取游戏列表`)
+
   try {
-    const name = c.req.query('name')
-    const publisher = c.req.query('publisher')
+    // 解析查询参数
+    const page = Math.max(1, Number.parseInt(c.req.query('page') || '1') || 1)
+    const limit = Math.min(100, Math.max(1, Number.parseInt(c.req.query('limit') || '20') || 20))
+    const search = c.req.query('search')
     const genre = c.req.query('genre')
-    const platform = c.req.query('platform')
+    const publisher = c.req.query('publisher')
     const region = c.req.query('region')
-    const dataSource = c.req.query('data_source')
 
+    const offset = (page - 1) * limit
+
+    // 构建查询条件
     const conditions: string[] = []
     const params: any[] = []
 
-    if (name) {
-      conditions.push(`(
-        formal_name LIKE ? OR 
-        name_zh_hant LIKE ? OR 
-        name_zh_hans LIKE ? OR 
-        name_en LIKE ? OR 
-        name_ja LIKE ?
-      )`)
-      const namePattern = `%${name}%`
-      params.push(namePattern, namePattern, namePattern, namePattern, namePattern)
-    }
-
-    if (publisher) {
-      conditions.push('publisher_name LIKE ?')
-      params.push(`%${publisher}%`)
+    if (search) {
+      conditions.push('(formal_name LIKE ? OR name_zh_hant LIKE ? OR name_zh_hans LIKE ? OR name_en LIKE ?)')
+      const searchPattern = `%${search}%`
+      params.push(searchPattern, searchPattern, searchPattern, searchPattern)
     }
 
     if (genre) {
@@ -200,9 +198,9 @@ data.get('/games/search', async (c) => {
       params.push(`%${genre}%`)
     }
 
-    if (platform) {
-      conditions.push('platform = ?')
-      params.push(platform)
+    if (publisher) {
+      conditions.push('publisher_name LIKE ?')
+      params.push(`%${publisher}%`)
     }
 
     if (region) {
@@ -210,52 +208,83 @@ data.get('/games/search', async (c) => {
       params.push(region)
     }
 
-    if (dataSource) {
-      conditions.push('data_source = ?')
-      params.push(dataSource)
-    }
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
 
-    // 添加限制
-    const limitParam = c.req.query('limit')
-    const limit = limitParam ? Math.min(Number.parseInt(limitParam), 1000) : 100 // 默认100条，最大1000条
+    // 查询总数
+    const countQuery = `SELECT COUNT(*) as total FROM games ${whereClause}`
+    const countResult = await c.env.DB.prepare(countQuery).bind(...params).first()
+    const total = (countResult as any)?.total || 0
 
-    let sql = 'SELECT * FROM games'
-    if (conditions.length > 0) {
-      sql += ` WHERE ${conditions.join(' AND ')}`
-    }
-    sql += ' ORDER BY updated_at DESC LIMIT ?'
+    // 查询数据
+    const dataQuery = `
+      SELECT 
+        title_id, formal_name, name_zh_hant, name_zh_hans, name_en, name_ja,
+        description, publisher_name, genre, release_date, hero_banner_url,
+        screenshots, platform, languages, player_number, rom_size,
+        rating_age, rating_name, in_app_purchase, region, created_at, updated_at
+      FROM games 
+      ${whereClause}
+      ORDER BY updated_at DESC 
+      LIMIT ? OFFSET ?
+    `
 
-    params.push(limit)
-    const result = await c.env.DB.prepare(sql).bind(...params).all()
+    const result = await c.env.DB.prepare(dataQuery).bind(...params, limit, offset).all()
+    const games = result.results || []
 
-    return c.json({
-      success: true,
-      data: result.results,
-      count: result.results?.length || 0,
-      limit,
-      filters: {
-        name,
-        publisher,
-        genre,
-        platform,
-        region,
-        data_source: dataSource,
-      },
-      timestamp: new Date().toISOString(),
-    }, 200, {
-      'Content-Type': 'application/json; charset=utf-8',
+    console.log(`✅ [${requestId}] 游戏列表获取成功: ${games.length} 个游戏`)
+
+    return createStandardSuccessResponse(c, games, `获取到 ${games.length} 个游戏`, {
+      pagination: createPaginationMeta(page, limit, total),
     })
   }
   catch (error) {
-    console.error('❌ 高级搜索失败:', error)
-    return c.json({
-      success: false,
-      error: '搜索失败',
-      timestamp: new Date().toISOString(),
-    }, 500, {
-      'Content-Type': 'application/json; charset=utf-8',
-    })
+    console.error(`❌ [${requestId}] 游戏列表获取失败:`, error)
+
+    return createStandardErrorResponse(c, 'Database Query Failed', 
+      error instanceof Error ? error.message : '数据库查询失败', 500)
   }
-})
+}) as any)
+
+// 注册游戏详情路由
+data.openapi(gameDetailRoute, (async (c: any) => {
+  const requestId = c.get('requestId')
+  const titleId = c.req.param('titleId')
+
+  console.log(`🎮 [${requestId}] 获取游戏详情: ${titleId}`)
+
+  try {
+    // 验证 titleId 格式
+    if (!titleId || !/^[0-9A-F]{16}$/i.test(titleId)) {
+      return createStandardErrorResponse(c, 'Invalid Title ID', 'titleId 必须是 16 位十六进制字符串', 400)
+    }
+
+    const query = `
+      SELECT 
+        title_id, formal_name, name_zh_hant, name_zh_hans, name_en, name_ja,
+        description, publisher_name, genre, release_date, hero_banner_url,
+        screenshots, platform, languages, player_number, rom_size,
+        rating_age, rating_name, in_app_purchase, region, created_at, updated_at
+      FROM games 
+      WHERE title_id = ?
+    `
+
+    const result = await c.env.DB.prepare(query).bind(titleId.toUpperCase()).first()
+
+    if (!result) {
+      console.log(`❌ [${requestId}] 游戏不存在: ${titleId}`)
+
+      return createStandardErrorResponse(c, 'Game Not Found', `游戏 ${titleId} 不存在`, 404)
+    }
+
+    console.log(`✅ [${requestId}] 游戏详情获取成功: ${titleId}`)
+
+    return createStandardSuccessResponse(c, result, '游戏详情获取成功')
+  }
+  catch (error) {
+    console.error(`❌ [${requestId}] 游戏详情获取失败:`, error)
+
+    return createStandardErrorResponse(c, 'Database Query Failed', error instanceof Error ? error.message : '数据库查询失败', 500)
+  }
+}) as any)
 
 export { data as dataRoutes }

@@ -38,6 +38,7 @@ export class URLParser {
         encodedState = url.searchParams.get('state')
       }
     }
+    // eslint-disable-next-line unused-imports/no-unused-vars
     catch (error) {
       throw new SessionError('回调 URL 解析失败')
     }
