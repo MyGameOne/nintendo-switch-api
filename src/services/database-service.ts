@@ -11,7 +11,7 @@ export class DatabaseService {
   }
 
   // 根据游戏 ID 批量获取中文名称和发行商信息
-  async getGameEnhancements(titleIds: string[]): Promise<Map<string, { name_zh_hant?: string, publisher_name?: string }>> {
+  async getGameEnhancements(titleIds: string[]): Promise<Map<string, { name_zh_hant?: string, name_zh_hans?: string, publisher_name?: string }>> {
     if (titleIds.length === 0)
       return new Map()
 
@@ -27,11 +27,12 @@ export class DatabaseService {
       const { results } = await this.db.prepare(query).bind(...titleIds).all()
 
       // 创建查找映射
-      const enhancementMap = new Map<string, { name_zh_hant?: string, publisher_name?: string }>()
+      const enhancementMap = new Map<string, { name_zh_hant?: string, name_zh_hans?: string, publisher_name?: string }>()
 
       if (results) {
         for (const row of results as any[]) {
           enhancementMap.set(row.title_id, {
+            name_zh_hans: row.name_zh_hans,
             name_zh_hant: row.name_zh_hant,
             publisher_name: row.publisher_name,
           })
@@ -60,9 +61,11 @@ export class DatabaseService {
     // 3. 返回增强后的游戏记录
     return gameRecords.map((record) => {
       const enhancement = enhancements.get(record.titleId)
+      console.log(enhancement)
+
       return {
         ...record,
-        titleNameCN: enhancement?.name_zh_hant || undefined,
+        titleNameCN: enhancement?.name_zh_hans || enhancement?.name_zh_hant || undefined,
         publisher: enhancement?.publisher_name || undefined,
       }
     })
@@ -152,12 +155,12 @@ export class DatabaseService {
       const [totalResult, chineseResult, lastUpdatedResult] = await Promise.all([
         this.db.prepare('SELECT COUNT(*) as count FROM games').first(),
         this.db.prepare('SELECT COUNT(*) as count FROM games WHERE name_zh_hant IS NOT NULL').first(),
-        this.db.prepare('SELECT MAX(updated_at) as last_updated FROM games').first()
+        this.db.prepare('SELECT MAX(updated_at) as last_updated FROM games').first(),
       ])
 
       const totalGames = (totalResult as any)?.count || 0
       const gamesWithChineseName = (chineseResult as any)?.count || 0
-      const chineseNameCoverage = totalGames > 0 
+      const chineseNameCoverage = totalGames > 0
         ? `${((gamesWithChineseName / totalGames) * 100).toFixed(1)}%`
         : '0%'
 
@@ -174,11 +177,11 @@ export class DatabaseService {
     }
     catch (error) {
       console.error('获取统计信息失败:', error)
-      return { 
-        totalGames: 0, 
+      return {
+        totalGames: 0,
         gamesWithChineseName: 0,
         chineseNameCoverage: '0%',
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
       }
     }
   }

@@ -3,7 +3,7 @@ import type { Context } from 'hono'
 import type { Env, Variables } from '../types'
 import { DatabaseService } from '../services/database-service'
 import { NintendoSwitchService } from '../services/nintendo-service'
-import { createStandardSuccessResponse, createStandardErrorResponse } from '../utils/response'
+import { createStandardSuccessResponse } from '../utils/response'
 
 /**
  * 处理认证 URL 生成请求
@@ -101,9 +101,8 @@ export async function handleGameRecords(c: Context<{ Bindings: Env, Variables: V
   console.log(`🔄 [${requestId}] 增强游戏信息...`)
   const enhancedGameRecords = await databaseService.enhanceGameRecords(gameRecords)
 
-  return createStandardSuccessResponse(c, enhancedGameRecords, 
-    `获取到 ${enhancedGameRecords.length} 个游戏记录`, {
-      count: enhancedGameRecords.length,
-      enhanced: enhancedGameRecords.filter(g => g.titleNameCN).length,
-    })
+  return createStandardSuccessResponse(c, enhancedGameRecords, `获取到 ${enhancedGameRecords.length} 个游戏记录`, {
+    count: enhancedGameRecords.length,
+    enhanced: enhancedGameRecords.filter(g => g.titleNameCN).length,
+  })
 }

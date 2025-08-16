@@ -1,10 +1,10 @@
 import { createRoute } from '@hono/zod-openapi'
-import { z } from 'zod'
 import * as HttpStatusCodes from 'stoker/http-status-codes'
 import { jsonContent, jsonContentRequired } from 'stoker/openapi/helpers'
-import { successResponseSchema, commonErrorResponses, createValidationErrorResponse } from '../lib/error-schemas'
-import { createRouter } from '../lib/create-app'
+import { z } from 'zod'
 import { handleGameRecords } from '../handlers/nintendo'
+import { createRouter } from '../lib/create-app'
+import { commonErrorResponses, createValidationErrorResponse, successResponseSchema } from '../lib/error-schemas'
 
 const games = createRouter()
 

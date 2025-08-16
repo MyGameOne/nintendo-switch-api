@@ -6,7 +6,7 @@
   "scripts": {
     "deploy": "wrangler deploy",
     "dev": "wrangler dev --port 8787",
-    "dev:remote": "wrangler dev --remote",
+    "dev:remote": "wrangler dev --x-remote-bindings",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "start": "wrangler dev",
