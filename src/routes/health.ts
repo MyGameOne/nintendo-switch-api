@@ -1,10 +1,11 @@
+import type { Context } from 'hono'
 import type { Env, Variables } from '../types'
 import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
 import { z } from 'zod'
 import { DatabaseService } from '../services/database-service'
 import { createStandardSuccessResponse } from '../utils/response'
 
-const health = new OpenAPIHono<{ Bindings: Env; Variables: Variables }>()
+const health = new OpenAPIHono<{ Bindings: Env, Variables: Variables }>()
 
 // 定义健康检查的 OpenAPI 路由
 const healthRoute = createRoute({
@@ -59,13 +60,12 @@ const healthRoute = createRoute({
   },
 })
 
-health.openapi(healthRoute, (async (c: any) => {
-  const requestId = c.get('requestId')
-  console.log(`🏥 [${requestId}] 执行健康检查...`)
+health.openapi(healthRoute, (async (c: Context<{ Bindings: Env, Variables: Variables }>) => {
+  console.log(`🏥 执行健康检查...`)
 
   try {
     const databaseService = new DatabaseService(c.env)
-    
+
     // 执行健康检查
     const stats = await databaseService.getStats()
 
@@ -90,12 +90,13 @@ health.openapi(healthRoute, (async (c: any) => {
       },
     }
 
-    console.log(`✅ [${requestId}] 健康检查通过`)
-    
+    console.log(`✅  健康检查通过`)
+
     return createStandardSuccessResponse(c, healthData, '服务运行正常')
-  } catch (error) {
-    console.error(`❌ [${requestId}] 健康检查失败:`, error)
-    
+  }
+  catch (error) {
+    console.error(`❌  健康检查失败:`, error)
+
     return c.json({
       success: false,
       error: 'Service Unavailable',

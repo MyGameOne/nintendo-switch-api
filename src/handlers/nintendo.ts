@@ -10,8 +10,7 @@ import { createStandardSuccessResponse } from '../utils/response'
  */
 
 export async function handleAuthUrl(c: Context<{ Bindings: Env, Variables: Variables }>) {
-  const requestId = c.get('requestId')
-  console.log(`🔐 [${requestId}] 生成认证 URL`)
+  console.log(`🔐 生成认证 URL`)
 
   const nintendoService = new NintendoSwitchService()
   const { authUrl, sessionId } = await nintendoService.generateAuthUrl()
@@ -29,8 +28,7 @@ export async function handleAuthUrl(c: Context<{ Bindings: Env, Variables: Varia
  * 处理认证回调请求
  */
 export async function handleAuthCallback(c: Context<{ Bindings: Env, Variables: Variables }>) {
-  const requestId = c.get('requestId')
-  console.log(`🔐 [${requestId}] 处理认证回调`)
+  console.log(`🔐  处理认证回调`)
 
   // 验证请求体
   const body = await c.req.json()
@@ -59,8 +57,7 @@ export async function handleAuthCallback(c: Context<{ Bindings: Env, Variables: 
  * 处理用户信息获取请求
  */
 export async function handleUserInfo(c: Context<{ Bindings: Env, Variables: Variables }>) {
-  const requestId = c.get('requestId')
-  console.log(`👤 [${requestId}] 获取用户信息`)
+  console.log(`👤  获取用户信息`)
 
   // 验证请求体
   const body = await c.req.json()
@@ -80,8 +77,7 @@ export async function handleUserInfo(c: Context<{ Bindings: Env, Variables: Vari
  * 处理游戏记录获取请求
  */
 export async function handleGameRecords(c: Context<{ Bindings: Env, Variables: Variables }>) {
-  const requestId = c.get('requestId')
-  console.log(`🎮 [${requestId}] 获取游戏记录`)
+  console.log(`🎮  获取游戏记录`)
 
   // 验证请求体
   const body = await c.req.json()
@@ -98,7 +94,7 @@ export async function handleGameRecords(c: Context<{ Bindings: Env, Variables: V
   const gameRecords = await nintendoService.getGameRecords(sessionToken)
 
   // 2. 从 D1 数据库增强游戏信息（添加中文名称和发行商）
-  console.log(`🔄 [${requestId}] 增强游戏信息...`)
+  console.log(`🔄  增强游戏信息...`)
   const enhancedGameRecords = await databaseService.enhanceGameRecords(gameRecords)
 
   return createStandardSuccessResponse(c, enhancedGameRecords, `获取到 ${enhancedGameRecords.length} 个游戏记录`, {

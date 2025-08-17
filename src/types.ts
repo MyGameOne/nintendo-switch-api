@@ -7,7 +7,6 @@ export interface Env {
 
 // Hono 上下文变量类型
 export interface Variables {
-  requestId: string
   validatedData: any
 }
 
@@ -17,7 +16,6 @@ export interface ApiResponse<T = any> {
   data?: T
   error?: string
   message?: string
-  requestId?: string
   timestamp: string
   meta?: {
     pagination?: PaginationMeta
@@ -45,7 +43,6 @@ export interface PerformanceMeta {
 
 // 中间件相关类型
 export interface RequestContext {
-  requestId: string
   startTime: number
   userAgent?: string
   clientIP?: string
@@ -57,7 +54,6 @@ export interface RateLimitInfo {
 }
 
 export interface LogEntry {
-  requestId: string
   method: string
   url: string
   status: number

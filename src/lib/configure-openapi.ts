@@ -1,6 +1,7 @@
-import { Scalar } from '@scalar/hono-api-reference'
+/* eslint-disable ts/explicit-function-return-type */
 import type { OpenAPIHono } from '@hono/zod-openapi'
 import type { Env, Variables } from '../types'
+import { Scalar } from '@scalar/hono-api-reference'
 
 export default function configureOpenAPI(app: OpenAPIHono<{ Bindings: Env, Variables: Variables }>) {
   app.doc('/openapi.json', {
@@ -24,7 +25,7 @@ export default function configureOpenAPI(app: OpenAPIHono<{ Bindings: Env, Varia
         description: 'Development server',
       },
       {
-        url: 'https://nintendo-switch-api.y1149221897.workers.dev/',
+        url: 'https://yang1206.asia',
         description: 'Production server',
       },
     ],

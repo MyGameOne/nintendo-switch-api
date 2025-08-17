@@ -19,12 +19,13 @@ export class DatabaseService {
       // 构建 SQL 查询
       const placeholders = titleIds.map(() => '?').join(',')
       const query = `
-        SELECT title_id, name_zh_hant, publisher_name 
+        SELECT title_id, name_zh_hant, name_zh_hans, publisher_name 
         FROM games 
         WHERE title_id IN (${placeholders})
       `
 
       const { results } = await this.db.prepare(query).bind(...titleIds).all()
+      console.log(results)
 
       // 创建查找映射
       const enhancementMap = new Map<string, { name_zh_hant?: string, name_zh_hans?: string, publisher_name?: string }>()
@@ -77,7 +78,7 @@ export class DatabaseService {
    */
   private async manageGameQueue(
     titleIds: string[],
-    enhancements: Map<string, { name_zh_hant?: string, publisher_name?: string }>,
+    enhancements: Map<string, { name_zh_hant?: string, name_zh_hans?: string, publisher_name?: string }>,
   ): Promise<void> {
     try {
       // 找出数据库中不存在的游戏 ID

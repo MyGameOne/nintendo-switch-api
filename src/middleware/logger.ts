@@ -8,10 +8,9 @@ export function logger() {
     const method = c.req.method
     const url = c.req.url
     const userAgent = c.req.header('User-Agent') || 'Unknown'
-    const requestId = c.get('requestId') || 'unknown'
 
     // 记录请求开始
-    console.log(`🚀 [${requestId}] ${method} ${url} - Start`)
+    console.log(`🚀 [$ ${method} ${url} - Start`)
 
     await next()
 
@@ -23,12 +22,12 @@ export function logger() {
     const logLevel = status >= 500 ? '❌' : status >= 400 ? '⚠️' : '✅'
 
     console.log(
-      `${logLevel} [${requestId}] ${method} ${url} - ${status} (${duration}ms) - ${userAgent}`,
+      `${logLevel}  ${method} ${url} - ${status} (${duration}ms) - ${userAgent}`,
     )
 
     // 如果是错误状态，记录更多信息
     if (status >= 400) {
-      console.log(`📝 [${requestId}] Response headers:`, Object.fromEntries(c.res.headers.entries()))
+      console.log(`📝  Response headers:`, Object.fromEntries(c.res.headers.entries()))
     }
   }
 }

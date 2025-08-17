@@ -1,16 +1,16 @@
 import type { Env, Variables } from '../types'
 import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
 import { z } from 'zod'
-import { createStandardSuccessResponse, createStandardErrorResponse, createPaginationMeta } from '../utils/response'
+import { createPaginationMeta, createStandardErrorResponse, createStandardSuccessResponse } from '../utils/response'
 
 const data = new OpenAPIHono<{ Bindings: Env, Variables: Variables }>()
 
 // 游戏数据 Schema
 const GameDataSchema = z.object({
-  title_id: z.string().describe("游戏 ID"),
-  formal_name: z.string().nullable().describe("正式名称"),
-  name_zh_hant: z.string().nullable().describe("繁体中文名称"),
-  name_zh_hans: z.string().nullable().describe("简体中文名称"),
+  title_id: z.string().describe('游戏 ID'),
+  formal_name: z.string().nullable().describe('正式名称'),
+  name_zh_hant: z.string().nullable().describe('繁体中文名称'),
+  name_zh_hans: z.string().nullable().describe('简体中文名称'),
   name_en: z.string().nullable().describe('英文名称'),
   name_ja: z.string().nullable().describe('日语名称'),
   description: z.string().nullable().describe('简介'),
@@ -25,7 +25,7 @@ const GameDataSchema = z.object({
   rom_size: z.number().nullable().describe('游戏大小'),
   rating_age: z.number().nullable().describe('游戏年龄限制'),
   rating_name: z.string().nullable().describe('游戏评级名称'),
-  in_app_purchase: z.boolean().nullable().describe("在应用内购买"),
+  in_app_purchase: z.boolean().nullable().describe('在应用内购买'),
   region: z.string().nullable().describe('游戏区域'),
   created_at: z.string().describe('创建时间'),
   updated_at: z.string().describe('更新时间'),
@@ -169,8 +169,7 @@ const gameDetailRoute = createRoute({
 
 // 注册游戏列表路由
 data.openapi(gamesListRoute, (async (c: any) => {
-  const requestId = c.get('requestId')
-  console.log(`📋 [${requestId}] 获取游戏列表`)
+  console.log(`📋  获取游戏列表`)
 
   try {
     // 解析查询参数
@@ -231,26 +230,24 @@ data.openapi(gamesListRoute, (async (c: any) => {
     const result = await c.env.DB.prepare(dataQuery).bind(...params, limit, offset).all()
     const games = result.results || []
 
-    console.log(`✅ [${requestId}] 游戏列表获取成功: ${games.length} 个游戏`)
+    console.log(`✅  游戏列表获取成功: ${games.length} 个游戏`)
 
     return createStandardSuccessResponse(c, games, `获取到 ${games.length} 个游戏`, {
       pagination: createPaginationMeta(page, limit, total),
     })
   }
   catch (error) {
-    console.error(`❌ [${requestId}] 游戏列表获取失败:`, error)
+    console.error(`❌  游戏列表获取失败:`, error)
 
-    return createStandardErrorResponse(c, 'Database Query Failed', 
-      error instanceof Error ? error.message : '数据库查询失败', 500)
+    return createStandardErrorResponse(c, 'Database Query Failed', error instanceof Error ? error.message : '数据库查询失败', 500)
   }
 }) as any)
 
 // 注册游戏详情路由
 data.openapi(gameDetailRoute, (async (c: any) => {
-  const requestId = c.get('requestId')
   const titleId = c.req.param('titleId')
 
-  console.log(`🎮 [${requestId}] 获取游戏详情: ${titleId}`)
+  console.log(`🎮  获取游戏详情: ${titleId}`)
 
   try {
     // 验证 titleId 格式
@@ -271,17 +268,17 @@ data.openapi(gameDetailRoute, (async (c: any) => {
     const result = await c.env.DB.prepare(query).bind(titleId.toUpperCase()).first()
 
     if (!result) {
-      console.log(`❌ [${requestId}] 游戏不存在: ${titleId}`)
+      console.log(`❌  游戏不存在: ${titleId}`)
 
       return createStandardErrorResponse(c, 'Game Not Found', `游戏 ${titleId} 不存在`, 404)
     }
 
-    console.log(`✅ [${requestId}] 游戏详情获取成功: ${titleId}`)
+    console.log(`✅  游戏详情获取成功: ${titleId}`)
 
     return createStandardSuccessResponse(c, result, '游戏详情获取成功')
   }
   catch (error) {
-    console.error(`❌ [${requestId}] 游戏详情获取失败:`, error)
+    console.error(`❌ 游戏详情获取失败:`, error)
 
     return createStandardErrorResponse(c, 'Database Query Failed', error instanceof Error ? error.message : '数据库查询失败', 500)
   }

@@ -38,8 +38,7 @@ const statsRoute = createRoute({
 })
 
 stats.openapi(statsRoute, (async (c: any) => {
-  const requestId = c.get('requestId')
-  console.log(`📊 [${requestId}] 获取统计信息...`)
+  console.log(`📊 获取统计信息...`)
 
   const databaseService = new DatabaseService(c.env)
   const statsData = await databaseService.getStats()
@@ -53,7 +52,7 @@ stats.openapi(statsRoute, (async (c: any) => {
     queueStats: statsData.queueStats,
   }
 
-  console.log(`✅ [${requestId}] 统计信息获取成功`)
+  console.log(`✅ 统计信息获取成功`)
 
   return createStandardSuccessResponse(c, data, '统计信息获取成功')
 }) as any)

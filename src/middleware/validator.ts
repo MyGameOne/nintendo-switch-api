@@ -6,8 +6,6 @@ import { createErrorResponse, createValidationErrorResponse } from '../utils/res
 // 通用验证中间件
 export function validator<T extends z.ZodSchema>(schema: T, target: 'json' | 'query' | 'param' = 'json') {
   return async (c: Context<{ Bindings: Env, Variables: Variables }>, next: Next) => {
-    const requestId = c.get('requestId') || 'unknown'
-
     try {
       let data: unknown
 
@@ -28,7 +26,7 @@ export function validator<T extends z.ZodSchema>(schema: T, target: 'json' | 'qu
       const result = schema.safeParse(data)
 
       if (!result.success) {
-        console.log(`⚠️ [${requestId}] 验证失败:`, {
+        console.log(`⚠️ 验证失败:`, {
           target,
           errors: result.error.issues,
           data,
@@ -49,7 +47,7 @@ export function validator<T extends z.ZodSchema>(schema: T, target: 'json' | 'qu
       await next()
     }
     catch (error) {
-      console.error(`❌ [${requestId}] 验证中间件错误:`, error)
+      console.error(`❌  验证中间件错误:`, error)
 
       const message = target === 'json' ? '无效的 JSON 格式' : '参数解析失败'
       return createErrorResponse(c, 'Validation Error', {

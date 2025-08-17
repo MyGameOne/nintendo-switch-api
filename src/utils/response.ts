@@ -1,6 +1,6 @@
+/* eslint-disable ts/explicit-function-return-type */
 import type { Context } from 'hono'
-import type { ApiResponse, Env, Variables, PaginationMeta } from '../types'
-
+import type { ApiResponse, Env, PaginationMeta, Variables } from '../types'
 
 /**
  * 创建错误响应数据
@@ -13,7 +13,6 @@ export function createErrorData(
     meta?: Record<string, any>
   } = {},
 ): ApiResponse<null> {
-  const requestId = c.get('requestId')
   const { message, meta } = options
 
   return {
@@ -21,7 +20,6 @@ export function createErrorData(
     data: null,
     error,
     message,
-    requestId,
     timestamp: new Date().toISOString(),
     meta,
   }
@@ -31,7 +29,7 @@ export function createErrorData(
  * 创建标准化的成功响应
  * 简化版本，移除冗余字段
  */
-export function createStandardSuccessResponse<T, M extends Record<string, any> = {}>(
+export function createStandardSuccessResponse<T, M extends Record<string, any> = object>(
   c: Context<{ Bindings: Env, Variables: Variables }>,
   data: T,
   message?: string,
@@ -41,15 +39,15 @@ export function createStandardSuccessResponse<T, M extends Record<string, any> =
     success: true as const,
     data,
   }
-  
+
   if (message) {
     response.message = message
   }
-  
+
   if (meta && Object.keys(meta).length > 0) {
     response.meta = meta
   }
-  
+
   return c.json(response, 200)
 }
 
@@ -68,11 +66,11 @@ export function createStandardErrorResponse(
     data: null,
     error,
   }
-  
+
   if (message) {
     response.message = message
   }
-  
+
   return c.json(response, status)
 }
 
@@ -91,7 +89,6 @@ export function createStokerErrorResponse(
     data: null,
     error,
     message,
-    requestId: c.get('requestId'),
     timestamp: new Date().toISOString(),
   }, status)
 }
@@ -106,7 +103,7 @@ export function createErrorResponse(
     message?: string
     status?: number
     details?: any
-  }
+  },
 ): Response {
   const status = options?.status || 500
   const errorData = createErrorData(c, error, {
@@ -121,7 +118,7 @@ export function createErrorResponse(
  */
 export function createValidationErrorResponse(
   c: Context<{ Bindings: Env, Variables: Variables }>,
-  errors: Array<{ field: string; message: string; code: string }>
+  errors: Array<{ field: string, message: string, code: string }>,
 ): Response {
   return createErrorResponse(c, 'Validation Error', {
     message: '请求参数验证失败',
@@ -136,7 +133,7 @@ export function createValidationErrorResponse(
 export function createPaginationMeta(
   page: number,
   limit: number,
-  total: number
+  total: number,
 ): PaginationMeta {
   const totalPages = Math.ceil(total / limit)
 
@@ -154,15 +151,14 @@ export function createPaginationMeta(
  * 包装异步处理器，统一错误处理
  */
 export function withErrorHandling<T extends any[]>(
-  handler: (c: Context<{ Bindings: Env, Variables: Variables }>, ...args: T) => Promise<Response>
+  handler: (c: Context<{ Bindings: Env, Variables: Variables }>, ...args: T) => Promise<Response>,
 ) {
   return async (c: Context<{ Bindings: Env, Variables: Variables }>, ...args: T): Promise<Response> => {
-    const requestId = c.get('requestId') as string
-
     try {
       return await handler(c, ...args)
-    } catch (error) {
-      console.error(`❌ [${requestId}] 处理器错误:`, error)
+    }
+    catch (error) {
+      console.error(`❌  处理器错误:`, error)
 
       // 根据错误类型返回不同的响应
       if (error instanceof Error) {
@@ -171,12 +167,14 @@ export function withErrorHandling<T extends any[]>(
             message: error.message,
             status: 502,
           })
-        } else if (error.name === 'SessionError') {
+        }
+        else if (error.name === 'SessionError') {
           return createErrorResponse(c, 'Session Error', {
             message: error.message,
             status: 401,
           })
-        } else if (error.name === 'ValidationError') {
+        }
+        else if (error.name === 'ValidationError') {
           return createErrorResponse(c, 'Validation Error', {
             message: error.message,
             status: 400,
