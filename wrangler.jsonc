@@ -30,17 +30,10 @@
       "id": "4b6c7a67cf78426c9fa80b9974a4c22d"
     }
   ],
-  "routes": [
-    {
-      "pattern": "game.yang1206.asia/*",
-      "zone_name": "yang1206.asia"
-    }
-  ],
   "workers_dev": false,
-  "vars": {
-    "ENVIRONMENT": "production",
-    "API_BASE_URL": "https://game.yang1206.asia"
-  }
+  "routes": [
+    "game.yang1206.asia/*"
+  ]
   /**
    * Smart Placement
    * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
