@@ -110,7 +110,7 @@ const gamesListRoute = createRoute({
 // 游戏详情路由
 const gameDetailRoute = createRoute({
   method: 'get',
-  path: '/games/{titleId',
+  path: '/games/:titleId',
   tags: ['Game Data'],
   summary: '获取游戏详情',
   description: '根据 titleId 获取游戏详细信息',
