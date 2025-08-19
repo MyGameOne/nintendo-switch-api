@@ -25,7 +25,7 @@ export default function configureOpenAPI(app: OpenAPIHono<{ Bindings: Env, Varia
         description: 'Development server',
       },
       {
-        url: 'http://game.yang1206.asia',
+        url: 'https://game.yang1206.asia',
         description: 'Production server',
       },
     ],

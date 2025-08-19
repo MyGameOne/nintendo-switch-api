@@ -1,3 +1,4 @@
+import type { Context } from 'hono'
 import type { Env, Variables } from '../types'
 import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
 import { z } from 'zod'
@@ -13,20 +14,26 @@ const GameDataSchema = z.object({
   name_zh_hans: z.string().nullable().describe('简体中文名称'),
   name_en: z.string().nullable().describe('英文名称'),
   name_ja: z.string().nullable().describe('日语名称'),
-  description: z.string().nullable().describe('简介'),
+  catch_copy: z.string().nullable().describe('宣传语'),
+  description: z.string().nullable().describe('游戏描述'),
   publisher_name: z.string().nullable().describe('发行商名称'),
+  publisher_id: z.number().nullable().describe('发行商 ID'),
   genre: z.string().nullable().describe('游戏类型'),
   release_date: z.string().nullable().describe('发行日期'),
-  hero_banner_url: z.string().nullable().describe('游戏 banner 地址'),
-  screenshots: z.string().nullable().describe('游戏截图列表'),
-  platform: z.string().nullable().describe('平台'),
-  languages: z.string().nullable().describe('游戏支持语言'),
-  player_number: z.string().nullable().describe('玩家人数'),
-  rom_size: z.number().nullable().describe('游戏大小'),
-  rating_age: z.number().nullable().describe('游戏年龄限制'),
-  rating_name: z.string().nullable().describe('游戏评级名称'),
-  in_app_purchase: z.boolean().nullable().describe('在应用内购买'),
-  region: z.string().nullable().describe('游戏区域'),
+  hero_banner_url: z.string().nullable().describe('主横幅图片'),
+  screenshots: z.string().nullable().describe('截图数组 (JSON)'),
+  platform: z.string().nullable().describe('平台标识'),
+  languages: z.string().nullable().describe('支持语言 (JSON)'),
+  player_number: z.string().nullable().describe('游玩人数信息'),
+  play_styles: z.string().nullable().describe('游玩模式数组 (JSON)'),
+  rom_size: z.number().nullable().describe('游戏大小 (字节)'),
+  rating_age: z.number().nullable().describe('年龄分级'),
+  rating_name: z.string().nullable().describe('分级名称'),
+  in_app_purchase: z.boolean().nullable().describe('是否含内购'),
+  cloud_backup_type: z.string().nullable().describe('云备份类型'),
+  region: z.string().nullable().describe('数据来源地区'),
+  data_source: z.string().nullable().describe('数据来源'),
+  notes: z.string().nullable().describe('备注'),
   created_at: z.string().describe('创建时间'),
   updated_at: z.string().describe('更新时间'),
 })
@@ -103,7 +110,7 @@ const gamesListRoute = createRoute({
 // 游戏详情路由
 const gameDetailRoute = createRoute({
   method: 'get',
-  path: '/games/{titleId}',
+  path: '/games/{titleId',
   tags: ['Game Data'],
   summary: '获取游戏详情',
   description: '根据 titleId 获取游戏详细信息',
@@ -218,9 +225,11 @@ data.openapi(gamesListRoute, (async (c: any) => {
     const dataQuery = `
       SELECT 
         title_id, formal_name, name_zh_hant, name_zh_hans, name_en, name_ja,
-        description, publisher_name, genre, release_date, hero_banner_url,
-        screenshots, platform, languages, player_number, rom_size,
-        rating_age, rating_name, in_app_purchase, region, created_at, updated_at
+        catch_copy, description, publisher_name, publisher_id, genre, 
+        release_date, hero_banner_url, screenshots, platform, languages, 
+        player_number, play_styles, rom_size, rating_age, rating_name, 
+        in_app_purchase, cloud_backup_type, region, data_source, notes,
+        created_at, updated_at
       FROM games 
       ${whereClause}
       ORDER BY updated_at DESC 
@@ -244,7 +253,7 @@ data.openapi(gamesListRoute, (async (c: any) => {
 }) as any)
 
 // 注册游戏详情路由
-data.openapi(gameDetailRoute, (async (c: any) => {
+data.openapi(gameDetailRoute, (async (c: Context<{ Bindings: Env, Variables: Variables }>) => {
   const titleId = c.req.param('titleId')
 
   console.log(`🎮  获取游戏详情: ${titleId}`)
@@ -258,14 +267,16 @@ data.openapi(gameDetailRoute, (async (c: any) => {
     const query = `
       SELECT 
         title_id, formal_name, name_zh_hant, name_zh_hans, name_en, name_ja,
-        description, publisher_name, genre, release_date, hero_banner_url,
-        screenshots, platform, languages, player_number, rom_size,
-        rating_age, rating_name, in_app_purchase, region, created_at, updated_at
+        catch_copy, description, publisher_name, publisher_id, genre, 
+        release_date, hero_banner_url, screenshots, platform, languages, 
+        player_number, play_styles, rom_size, rating_age, rating_name, 
+        in_app_purchase, cloud_backup_type, region, data_source, notes,
+        created_at, updated_at
       FROM games 
       WHERE title_id = ?
     `
 
-    const result = await c.env.DB.prepare(query).bind(titleId.toUpperCase()).first()
+    const result = await c.env.DB.prepare(query).bind(titleId).first()
 
     if (!result) {
       console.log(`❌  游戏不存在: ${titleId}`)
