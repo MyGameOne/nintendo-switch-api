@@ -22,12 +22,8 @@
     {
       "binding": "GAME_IDS",
       "experimental_remote": true,
-      "id": "12250a4c4409481c8fcf26f500f79fbb"
-    },
-    {
-      "binding": "CACHE",
-      "experimental_remote": true,
-      "id": "4b6c7a67cf78426c9fa80b9974a4c22d"
+      "id": "12250a4c4409481c8fcf26f500f79fbb",
+      "preview_id": "12250a4c4409481c8fcf26f500f79fbb"
     }
   ],
   "workers_dev": false

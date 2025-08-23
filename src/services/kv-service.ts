@@ -1,104 +1,230 @@
 import type { Env } from '../types'
 
 /**
- * KV 服务 - 管理游戏 ID 队列和缓存
+ * 游戏队列项数据结构
+ */
+interface QueueItem {
+  addedAt: number
+  source: string
+  status: 'pending' | 'processing' | 'failed'
+  failureCount: number
+  lastFailedAt?: number
+  blacklisted?: boolean
+  reason?: string
+}
+
+/**
+ * KV 服务 - 管理游戏 ID 队列和失败追踪
+ * 移除了无效的缓存机制，专注于队列管理和失败追踪
  */
 export class KVService {
   private gameIds: KVNamespace
-  private cache: KVNamespace
+  
+  // 配置常量
+  private readonly MAX_FAILURE_COUNT = 3 // 最大失败次数
+  private readonly BLACKLIST_TTL = 30 * 24 * 60 * 60 // 黑名单 TTL: 30天
 
   constructor(env: Env) {
     this.gameIds = env.GAME_IDS
-    this.cache = env.CACHE
   }
 
   /**
-   * 添加游戏 ID 到待爬取队列
+   * 检查游戏是否在黑名单中
+   * @param titleId 游戏 ID
+   * @returns 是否被黑名单
+   */
+  async isBlacklisted(titleId: string): Promise<boolean> {
+    const blacklistKey = `failed:${titleId}`
+    const blacklistData = await this.gameIds.get(blacklistKey)
+    
+    if (!blacklistData) return false
+    
+    try {
+      const data: QueueItem = JSON.parse(blacklistData)
+      return data.blacklisted === true && data.failureCount >= this.MAX_FAILURE_COUNT
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * 添加游戏 ID 到待爬取队列 (智能防重复和黑名单检查)
    * @param titleId 游戏 ID
    * @param source 来源标识 (如 'user_query')
+   * @returns 是否成功添加
    */
-  async addToQueue(titleId: string, source: string = 'user_query'): Promise<void> {
-    const key = `pending:${titleId}`
-    const value = JSON.stringify({
-      addedAt: Date.now(),
-      source,
-    })
-
-    await this.gameIds.put(key, value)
-    console.log(`📝 游戏 ID ${titleId} 已添加到爬取队列 (来源: ${source})`)
-  }
-
-  /**
-   * 批量添加游戏 ID 到队列
-   * @param titleIds 游戏 ID 数组
-   * @param source 来源标识
-   */
-  async addMultipleToQueue(titleIds: string[], source: string = 'user_query'): Promise<void> {
-    if (titleIds.length === 0)
-      return
-
-    // 检查哪些 ID 还未在队列中
-    const newTitleIds = await this.filterNewTitleIds(titleIds)
-
-    if (newTitleIds.length === 0) {
-      console.log('📋 所有游戏 ID 都已在队列中，跳过添加')
-      return
+  async addToQueue(titleId: string, source: string = 'user_query'): Promise<boolean> {
+    // 1. 检查是否在黑名单中
+    if (await this.isBlacklisted(titleId)) {
+      console.log(`🚫 游戏 ID ${titleId} 在黑名单中，跳过添加`)
+      return false
     }
 
-    // 批量添加新的 ID
-    const promises = newTitleIds.map(titleId => this.addToQueue(titleId, source))
-    await Promise.all(promises)
+    const pendingKey = `pending:${titleId}`
+    
+    // 2. 检查是否已在待处理队列中
+    const existing = await this.gameIds.get(pendingKey)
+    if (existing !== null) {
+      console.log(`⏭️ 游戏 ID ${titleId} 已在队列中，跳过添加`)
+      return false
+    }
 
-    console.log(`📝 批量添加 ${newTitleIds.length} 个游戏 ID 到爬取队列`)
+    // 3. 添加到队列
+    const queueItem: QueueItem = {
+      addedAt: Date.now(),
+      source,
+      status: 'pending',
+      failureCount: 0
+    }
+
+    await this.gameIds.put(pendingKey, JSON.stringify(queueItem))
+    console.log(`📝 游戏 ID ${titleId} 已添加到爬取队列 (来源: ${source})`)
+    return true
   }
 
   /**
-   * 检查游戏 ID 是否已在队列中
-   * @param titleId 游戏 ID
-   * @returns 是否在队列中
-   */
-  async isInQueue(titleId: string): Promise<boolean> {
-    const key = `pending:${titleId}`
-    const value = await this.gameIds.get(key)
-    return value !== null
-  }
-
-  /**
-   * 过滤出不在队列中的新游戏 ID
+   * 批量添加游戏 ID 到队列 (智能过滤黑名单和重复项)
    * @param titleIds 游戏 ID 数组
-   * @returns 不在队列中的游戏 ID 数组
+   * @param source 来源标识
+   * @returns 实际添加的数量
    */
-  async filterNewTitleIds(titleIds: string[]): Promise<string[]> {
-    if (titleIds.length === 0)
-      return []
+  async addMultipleToQueue(titleIds: string[], source: string = 'user_query'): Promise<number> {
+    if (titleIds.length === 0) return 0
 
-    // 批量检查队列状态
-    const checkPromises = titleIds.map(async (titleId) => {
-      const inQueue = await this.isInQueue(titleId)
-      return { titleId, inQueue }
-    })
+    // 批量添加，每个方法内部会检查黑名单和重复
+    const results = await Promise.all(
+      titleIds.map(titleId => this.addToQueue(titleId, source))
+    )
 
-    const results = await Promise.all(checkPromises)
-    return results
-      .filter(result => !result.inQueue)
-      .map(result => result.titleId)
+    const addedCount = results.filter(Boolean).length
+    
+    if (addedCount === 0) {
+      console.log('📋 所有游戏 ID 都已在队列中或被黑名单，跳过添加')
+    } else {
+      console.log(`📝 批量添加 ${addedCount}/${titleIds.length} 个游戏 ID 到爬取队列`)
+    }
+
+    return addedCount
   }
 
   /**
-   * 获取队列统计信息
+   * 记录游戏爬取失败 (供爬虫项目调用)
+   * @param titleId 游戏 ID
+   * @param reason 失败原因
    */
-  async getQueueStats(): Promise<{ pendingCount: number }> {
+  async recordFailure(titleId: string, reason: string = 'scraping_failed'): Promise<void> {
+    const pendingKey = `pending:${titleId}`
+    const failedKey = `failed:${titleId}`
+
+    // 1. 从待处理队列中移除
+    await this.gameIds.delete(pendingKey)
+
+    // 2. 获取或创建失败记录
+    let failureData: QueueItem
+    const existingFailure = await this.gameIds.get(failedKey)
+    
+    if (existingFailure) {
+      try {
+        failureData = JSON.parse(existingFailure)
+        failureData.failureCount += 1
+        failureData.lastFailedAt = Date.now()
+      } catch {
+        // 解析失败，创建新记录
+        failureData = {
+          addedAt: Date.now(),
+          source: 'unknown',
+          status: 'failed',
+          failureCount: 1,
+          lastFailedAt: Date.now(),
+          reason
+        }
+      }
+    } else {
+      failureData = {
+        addedAt: Date.now(),
+        source: 'unknown',
+        status: 'failed',
+        failureCount: 1,
+        lastFailedAt: Date.now(),
+        reason
+      }
+    }
+
+    // 3. 检查是否需要加入黑名单
+    if (failureData.failureCount >= this.MAX_FAILURE_COUNT) {
+      failureData.blacklisted = true
+      console.log(`🚫 游戏 ID ${titleId} 失败 ${failureData.failureCount} 次，已加入黑名单`)
+      
+      // 设置较长的 TTL，避免永久占用空间
+      await this.gameIds.put(failedKey, JSON.stringify(failureData), {
+        expirationTtl: this.BLACKLIST_TTL
+      })
+    } else {
+      console.log(`⚠️ 游戏 ID ${titleId} 失败 ${failureData.failureCount} 次`)
+      await this.gameIds.put(failedKey, JSON.stringify(failureData))
+    }
+  }
+
+  /**
+   * 标记游戏爬取成功 (供爬虫项目调用)
+   * @param titleId 游戏 ID
+   */
+  async markSuccess(titleId: string): Promise<void> {
+    const pendingKey = `pending:${titleId}`
+    const failedKey = `failed:${titleId}`
+
+    // 从队列和失败记录中移除
+    await Promise.all([
+      this.gameIds.delete(pendingKey),
+      this.gameIds.delete(failedKey)
+    ])
+
+    console.log(`✅ 游戏 ID ${titleId} 爬取成功，已从队列中移除`)
+  }
+
+  /**
+   * 获取队列统计信息 (包含黑名单统计)
+   */
+  async getQueueStats(): Promise<{ 
+    pendingCount: number
+    blacklistedCount: number
+    failedCount: number
+  }> {
     try {
-      // 列出所有 pending: 开头的键
-      const list = await this.gameIds.list({ prefix: 'pending:' })
+      const [pendingList, failedList] = await Promise.all([
+        this.gameIds.list({ prefix: 'pending:' }),
+        this.gameIds.list({ prefix: 'failed:' })
+      ])
+
+      // 统计黑名单数量
+      let blacklistedCount = 0
+      for (const key of failedList.keys) {
+        try {
+          const data = await this.gameIds.get(key.name)
+          if (data) {
+            const failureData: QueueItem = JSON.parse(data)
+            if (failureData.blacklisted) {
+              blacklistedCount++
+            }
+          }
+        } catch {
+          // 忽略解析错误
+        }
+      }
 
       return {
-        pendingCount: list.keys.length,
+        pendingCount: pendingList.keys.length,
+        blacklistedCount,
+        failedCount: failedList.keys.length
       }
     }
     catch (error) {
       console.error('获取队列统计失败:', error)
-      return { pendingCount: 0 }
+      return { 
+        pendingCount: 0, 
+        blacklistedCount: 0,
+        failedCount: 0
+      }
     }
   }
 
@@ -122,59 +248,81 @@ export class KVService {
   }
 
   /**
-   * 从队列中移除游戏 ID (爬虫完成后调用)
-   * @param titleId 游戏 ID
+   * 从队列中移除游戏 ID (已废弃，请使用 markSuccess 或 recordFailure)
+   * @deprecated 使用 markSuccess() 或 recordFailure() 代替
    */
   async removeFromQueue(titleId: string): Promise<void> {
-    const key = `pending:${titleId}`
-    await this.gameIds.delete(key)
-    console.log(`🗑️ 游戏 ID ${titleId} 已从队列中移除`)
+    console.warn(`⚠️ removeFromQueue 已废弃，请使用 markSuccess() 或 recordFailure()`)
+    await this.markSuccess(titleId)
   }
 
   /**
-   * 缓存游戏存在性检查结果
-   * @param titleId 游戏 ID
-   * @param exists 是否存在于数据库
-   * @param ttl TTL (秒)，默认 6 小时
+   * 清理过期的失败记录 (管理功能)
+   * @param olderThanDays 清理多少天前的记录
    */
-  async cacheGameExists(titleId: string, exists: boolean, ttl: number = 21600): Promise<void> {
-    const key = `db:exists:${titleId}`
-    await this.cache.put(key, exists.toString(), { expirationTtl: ttl })
-  }
+  async cleanupFailedRecords(olderThanDays: number = 7): Promise<number> {
+    try {
+      const failedList = await this.gameIds.list({ prefix: 'failed:' })
+      const cutoffTime = Date.now() - (olderThanDays * 24 * 60 * 60 * 1000)
+      
+      let cleanedCount = 0
+      
+      for (const key of failedList.keys) {
+        try {
+          const data = await this.gameIds.get(key.name)
+          if (data) {
+            const failureData: QueueItem = JSON.parse(data)
+            
+            // 清理非黑名单的旧失败记录
+            if (!failureData.blacklisted && 
+                failureData.lastFailedAt && 
+                failureData.lastFailedAt < cutoffTime) {
+              await this.gameIds.delete(key.name)
+              cleanedCount++
+            }
+          }
+        } catch {
+          // 解析失败的记录也删除
+          await this.gameIds.delete(key.name)
+          cleanedCount++
+        }
+      }
 
-  /**
-   * 获取缓存的游戏存在性
-   * @param titleId 游戏 ID
-   * @returns 存在性 (null 表示缓存未命中)
-   */
-  async getCachedGameExists(titleId: string): Promise<boolean | null> {
-    const key = `db:exists:${titleId}`
-    const value = await this.cache.get(key)
-
-    if (value === null)
-      return null
-    return value === 'true'
-  }
-
-  /**
-   * 批量获取缓存的游戏存在性
-   * @param titleIds 游戏 ID 数组
-   * @returns Map<titleId, exists | null>
-   */
-  async getCachedGameExistsBatch(titleIds: string[]): Promise<Map<string, boolean | null>> {
-    const results = new Map<string, boolean | null>()
-
-    const promises = titleIds.map(async (titleId) => {
-      const exists = await this.getCachedGameExists(titleId)
-      return { titleId, exists }
-    })
-
-    const batchResults = await Promise.all(promises)
-
-    for (const result of batchResults) {
-      results.set(result.titleId, result.exists)
+      console.log(`🧹 清理了 ${cleanedCount} 个过期的失败记录`)
+      return cleanedCount
+    } catch (error) {
+      console.error('清理失败记录时出错:', error)
+      return 0
     }
+  }
 
-    return results
+  /**
+   * 获取黑名单游戏列表 (管理功能)
+   * @param limit 限制数量
+   */
+  async getBlacklistedGames(limit: number = 50): Promise<string[]> {
+    try {
+      const failedList = await this.gameIds.list({ prefix: 'failed:', limit })
+      const blacklisted: string[] = []
+
+      for (const key of failedList.keys) {
+        try {
+          const data = await this.gameIds.get(key.name)
+          if (data) {
+            const failureData: QueueItem = JSON.parse(data)
+            if (failureData.blacklisted) {
+              blacklisted.push(key.name.replace('failed:', ''))
+            }
+          }
+        } catch {
+          // 忽略解析错误
+        }
+      }
+
+      return blacklisted
+    } catch (error) {
+      console.error('获取黑名单失败:', error)
+      return []
+    }
   }
 }

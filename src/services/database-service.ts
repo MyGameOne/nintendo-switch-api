@@ -74,7 +74,7 @@ export class DatabaseService {
 
   /**
    * 智能队列管理：将数据库中不存在的游戏 ID 添加到爬取队列
-   * 这是内部功能，不对外暴露
+   * 移除无效缓存，增加黑名单检查
    */
   private async manageGameQueue(
     titleIds: string[],
@@ -89,24 +89,10 @@ export class DatabaseService {
         return
       }
 
-      // 批量添加到 KV 队列，KV 服务会自动去重
-      await this.kvService.addMultipleToQueue(missingTitleIds, 'user_query')
+      // 批量添加到 KV 队列，KV 服务会自动检查黑名单和去重
+      const addedCount = await this.kvService.addMultipleToQueue(missingTitleIds, 'user_query')
 
-      // 缓存存在性检查结果
-      const cachePromises = [
-        // 缓存存在的游戏
-        ...Array.from(enhancements.keys()).map(titleId =>
-          this.kvService.cacheGameExists(titleId, true),
-        ),
-        // 缓存不存在的游戏
-        ...missingTitleIds.map(titleId =>
-          this.kvService.cacheGameExists(titleId, false),
-        ),
-      ]
-
-      await Promise.all(cachePromises)
-
-      console.log(`🎯 智能队列管理完成: ${missingTitleIds.length} 个新游戏已添加到爬取队列`)
+      console.log(`🎯 智能队列管理完成: ${addedCount}/${missingTitleIds.length} 个新游戏已添加到爬取队列`)
     }
     catch (error) {
       console.error('❌ 队列管理失败:', error)
@@ -144,13 +130,17 @@ export class DatabaseService {
     }
   }
 
-  // 获取数据库统计信息
+  // 获取数据库统计信息 (包含增强的队列统计)
   async getStats(): Promise<{
     totalGames: number
     gamesWithChineseName: number
     chineseNameCoverage: string
     lastUpdated: string
-    queueStats?: { pendingCount: number }
+    queueStats?: {
+      pendingCount: number
+      blacklistedCount: number
+      failedCount: number
+    }
   }> {
     try {
       const [totalResult, chineseResult, lastUpdatedResult] = await Promise.all([
@@ -165,8 +155,12 @@ export class DatabaseService {
         ? `${((gamesWithChineseName / totalGames) * 100).toFixed(1)}%`
         : '0%'
 
-      // 获取队列统计（内部信息，可以在统计中显示）
-      const queueStats = await this.kvService.getQueueStats().catch(() => ({ pendingCount: 0 }))
+      // 获取增强的队列统计（包含黑名单信息）
+      const queueStats = await this.kvService.getQueueStats().catch(() => ({
+        pendingCount: 0,
+        blacklistedCount: 0,
+        failedCount: 0,
+      }))
 
       return {
         totalGames,

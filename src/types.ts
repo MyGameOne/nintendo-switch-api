@@ -1,8 +1,7 @@
 // 环境变量类型
 export interface Env {
   DB: D1Database
-  GAME_IDS: KVNamespace // 游戏 ID 存储
-  CACHE: KVNamespace // 缓存存储
+  GAME_IDS: KVNamespace // 游戏 ID 存储和失败追踪
 }
 
 // Hono 上下文变量类型
@@ -137,6 +136,8 @@ export interface DatabaseStats {
   lastUpdated: string
   queueStats?: {
     pendingCount: number
+    blacklistedCount: number
+    failedCount: number
   }
 }
 
